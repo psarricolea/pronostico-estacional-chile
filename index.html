@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pronóstico estacional · Chile · Tmax y Tmin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0E1A26;--line:#2B3B4C;--txt:#EEF2F5;--mute:#93A4B4;--soft:#C9D3DC;--warm:#F29F7D;--cool:#8CC1DC}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:'Archivo',system-ui,sans-serif;background:var(--ink);color:var(--txt)}
+.app{display:flex;height:100%}
+aside{width:380px;flex:0 0 380px;padding:28px 28px 20px;display:flex;flex-direction:column;gap:22px;overflow-y:auto;border-right:1px solid var(--line)}
+#map{flex:1;min-width:0;background:#dfe6ec}
+.kick{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;color:var(--mute)}
+h1{margin:0;font-size:44px;line-height:.92;font-weight:800;font-stretch:72%}
+.sub{margin:0;font-size:15px;line-height:1.4;color:var(--soft)}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+legend{padding:0;margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;color:var(--mute)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:inherit;font-size:14px;color:var(--soft);background:transparent;border:1px solid var(--line);padding:9px 12px;min-height:40px;cursor:pointer;border-radius:2px}
+.seg button:hover{border-color:var(--mute);color:var(--txt)}
+.seg button[aria-pressed="true"]{background:var(--txt);color:var(--ink);border-color:var(--txt);font-weight:600}
+.leg{display:flex;flex-direction:column;gap:8px}
+.bar{display:flex;height:16px}.bar span{flex:1}
+.ticks{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--soft)}
+.cats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;font-size:13px;color:var(--soft)}
+.cats div{display:flex;align-items:center;gap:8px}.cats i{width:14px;height:14px;display:inline-block;flex:0 0 14px;border:1px solid #3a4a5a}
+input[type=range]{width:100%;accent-color:var(--warm)}
+.aviso{background:var(--warm);color:var(--ink);padding:14px 16px;font-size:14px;line-height:1.4}
+.aviso b{font-weight:800}
+.meta{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:var(--mute);border-top:1px solid var(--line);padding-top:14px;margin-top:auto}
+.credit{font-size:16px;font-weight:600;font-stretch:85%;color:var(--txt)}
+.leaflet-popup-content-wrapper{border-radius:2px;font-family:'Archivo',sans-serif}
+.pp h3{margin:0 0 6px;font-size:16px}.pp .big{font-size:26px;font-weight:800;font-stretch:80%}
+.pp .row{display:flex;justify-content:space-between;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12px}
+.pp .dim{color:#5b6b7b;font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:6px}
+.city{font-family:'Archivo',sans-serif;font-size:12px;font-weight:600;color:#0E1A26;text-shadow:0 0 3px #fff,0 0 3px #fff;white-space:nowrap}
+@media (max-width:760px){.app{flex-direction:column-reverse}aside{width:auto;flex:0 0 auto;max-height:52%;border-right:0;border-top:1px solid var(--line);padding:18px}#map{flex:1 1 48%}h1{font-size:34px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <div class="kick">PRONÓSTICO ESTACIONAL · CHILE</div>
+  <h1 id="titulo">Temperatura máxima</h1>
+  <p class="sub" id="sub"></p>
+  <fieldset><legend>VARIABLE</legend><div class="seg" id="segVar"></div></fieldset>
+  <fieldset><legend>PERÍODO</legend><div class="seg" id="segPer"></div></fieldset>
+  <fieldset><legend>PRODUCTO</legend><div class="seg" id="segProd"></div></fieldset>
+  <div class="leg" id="leyenda"></div>
+  <fieldset><legend><label for="opac">OPACIDAD</label></legend><input id="opac" type="range" min="0.2" max="1" step="0.05" value="0.85"></fieldset>
+  <div class="aviso"><b>Se actualiza mes a mes.</b> Para avisos, alertas y el pronóstico oficial, sigue los canales de la <b>Dirección Meteorológica de Chile (DMC)</b>.</div>
+  <div class="meta"><div class="credit" id="credit"></div><div id="metaTxt"></div></div>
+</aside>
+<div id="map" role="region" aria-label="Mapa de Chile con el pronóstico estacional"></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="regiones.js"></script>
+<script src="data.js"></script>
+<script>
+const D = window.DATA;
+const st = { v: Object.keys(D.vars)[0], p: Object.keys(D.periodos)[0], prod: 'anom', op: 0.85 };
+const fmt = (x, d=1) => (x>0?'+':'') + x.toFixed(d).replace('.', ',').replace('-', '−');
+const map = L.map('map', { zoomControl: true, minZoom: 3, zoomSnap: 0.25 });
+map.fitBounds([[-55.5, -76], [-17.5, -66.5]], { paddingTopLeft: [0, 10], paddingBottomRight: [0, 10] });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution: 'Pronóstico: Copernicus C3S · © OpenStreetMap · © CARTO', subdomains: 'abcd', maxZoom: 10 }).addTo(map);
+map.createPane('top'); map.getPane('top').style.zIndex = 450;
+let overlay = null;
+if (window.REGIONES) L.geoJSON(window.REGIONES, { pane: 'top', interactive: false,
+  style: { color: '#24323f', weight: 0.8, fill: false } }).addTo(map);
+const etiquetas = [];
+D.ciudades.forEach(c => {
+  L.circleMarker([c.lat, c.lon], { pane: 'top', radius: 3, color: '#0E1A26', weight: 1.2, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(map);
+  etiquetas.push([c, L.marker([c.lat, c.lon], { pane: 'top', interactive: false, icon: L.divIcon({ className: 'city', html: c.n, iconSize: null, iconAnchor: [-6, 8] }) })]);
+});
+function etiquetasZoom() {
+  const z = map.getZoom();
+  etiquetas.forEach(([c, m]) => { (c.top === 1 || z >= 6) ? m.addTo(map) : map.removeLayer(m); });
+}
+map.on('zoomend', etiquetasZoom); etiquetasZoom();
+function capa() { return D.capas[st.v + '_' + st.p]; }
+function botones(id, opts, key) {
+  const el = document.getElementById(id); el.innerHTML = '';
+  Object.entries(opts).forEach(([k, lab]) => {
+    if (key === 'p' && !D.capas[st.v + '_' + k]) return;
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = lab;
+    b.setAttribute('aria-pressed', st[key] === k ? 'true' : 'false');
+    b.addEventListener('click', () => { st[key] = k; render(); });
+    el.appendChild(b);
+  });
+}
+function leyenda() {
+  const el = document.getElementById('leyenda');
+  if (st.prod === 'anom') {
+    el.innerHTML = '<div class="kick">ANOMALÍA RESPECTO DE LO NORMAL (°C)</div><div class="bar">' +
+      D.pal_anom.map(c => '<span style="background:' + c + '"></span>').join('') +
+      '</div><div class="ticks"><span>−3 · más frío</span><span>0</span><span>más cálido · +3</span></div>';
+  } else {
+    el.innerHTML = '<div class="kick">TERCIL MÁS PROBABLE</div><div class="cats">' +
+      D.clases.map((t, i) => '<div><i style="background:' + D.pal_cat[i] + '"></i>' + t + '</div>').join('') + '</div>';
+  }
+}
+function render() {
+  const c = capa(); if (!c) { st.p = Object.keys(D.periodos).find(k => D.capas[st.v + '_' + k]); return render(); }
+  botones('segVar', D.vars, 'v'); botones('segPer', D.periodos, 'p');
+  botones('segProd', { anom: 'Anomalía', cat: 'Tercil más probable' }, 'prod');
+  document.getElementById('titulo').textContent = D.vars[st.v];
+  document.getElementById('sub').textContent = D.periodos[st.p] + ' · ' + (st.prod === 'anom'
+    ? 'cuánto más cálido o más frío que lo normal promedian los modelos.'
+    : 'categoría (bajo, normal o sobre lo normal) con mayor probabilidad.');
+  const url = st.prod === 'anom' ? c.img_anom : c.img_cat;
+  if (overlay) map.removeLayer(overlay);
+  overlay = L.imageOverlay(url, c.bounds, { opacity: st.op, alt: D.vars[st.v] + ' ' + D.periodos[st.p] }).addTo(map);
+  leyenda(); map.closePopup();
+}
+// Interpolación bilineal sobre la grilla de 1°
+function consulta(lat, lon, arr) {
+  const g = D.grid, fx = (lon - g.xmin) / g.dx - 0.5, fy = (g.ymax - lat) / g.dy - 0.5;
+  const i0 = Math.floor(fx), j0 = Math.floor(fy); let s = 0, w = 0;
+  [[0,0],[1,0],[0,1],[1,1]].forEach(([a, b]) => {
+    const i = Math.min(Math.max(i0 + a, 0), g.nx - 1), j = Math.min(Math.max(j0 + b, 0), g.ny - 1);
+    const v = arr[j * g.nx + i]; if (v === null || v === undefined) return;
+    const wt = (a ? fx - i0 : 1 - (fx - i0)) * (b ? fy - j0 : 1 - (fy - j0)); s += wt * v; w += wt;
+  });
+  return w > 0 ? s / w : null;
+}
+map.on('click', e => {
+  const c = capa(), { lat, lng } = e.latlng;
+  if (lng < D.grid.xmin || lng > D.grid.xmin + D.grid.nx * D.grid.dx || lat > D.grid.ymax || lat < D.grid.ymax - D.grid.ny * D.grid.dy) return;
+  const an = consulta(lat, lng, c.anom), pb = consulta(lat, lng, c.pb), pn = consulta(lat, lng, c.pn), pa = consulta(lat, lng, c.pa);
+  if (an === null) return;
+  const pct = x => Math.round(100 * x) + ' %';
+  L.popup({ maxWidth: 240 }).setLatLng(e.latlng).setContent(
+    '<div class="pp"><h3>' + D.vars[st.v] + ' · ' + D.periodos[st.p] + '</h3>' +
+    '<div class="big">' + fmt(an) + ' °C</div>' +
+    '<div class="row"><span>Bajo lo normal</span><span>' + pct(pb) + '</span></div>' +
+    '<div class="row"><span>Normal</span><span>' + pct(pn) + '</span></div>' +
+    '<div class="row"><span>Sobre lo normal</span><span>' + pct(pa) + '</span></div>' +
+    '<div class="dim">' + lat.toFixed(2) + '°, ' + lng.toFixed(2) + '° · valor interpolado de la grilla de 1°</div></div>'
+  ).openOn(map);
+});
+document.getElementById('opac').addEventListener('input', ev => { st.op = +ev.target.value; if (overlay) overlay.setOpacity(st.op); });
+document.getElementById('credit').textContent = 'Corrido el ' + D.fecha + ' por ' + D.autor;
+document.getElementById('metaTxt').innerHTML = 'Multi-modelo Copernicus C3S · inicialización ' + D.init + ' · ' + D.modo +
+  ' · grilla de 1° (~110 km) interpolada para visualizar · límites: ' + D.limites;
+render();
+</script>
+</body>
+</html>
+
