@@ -72,6 +72,7 @@ input[type=range]{width:100%;accent-color:var(--warm)}
   h1{font-size:34px}
   .leaflet-bottom{bottom:var(--asa, 66px)}
   .leaflet-control-attribution{font-size:9px;line-height:1.3}
+  .pais{display:none}
 }
 </style>
 </head>
@@ -204,6 +205,8 @@ asa.addEventListener('click', () => abrirPanel(!panel.classList.contains('abiert
 // Altura real de la barra plegada (para que no asomen los controles)
 const medirAsa = () => document.documentElement.style.setProperty('--asa', asa.offsetHeight + 'px');
 medirAsa(); addEventListener('resize', medirAsa);
+if (window.ResizeObserver) new ResizeObserver(medirAsa).observe(asa);
+if (document.fonts) document.fonts.ready.then(medirAsa);
 document.querySelectorAll('.seg').forEach(el => el.addEventListener('click', () => setTimeout(medirAsa, 0)));
 map.on('click dragstart', () => { if (esMovil() && panel.classList.contains('abierto')) abrirPanel(false); });
 // Que los popups no queden tapados por el panel
