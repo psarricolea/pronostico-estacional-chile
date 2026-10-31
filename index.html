@@ -66,8 +66,8 @@ const st = { v: Object.keys(D.vars)[0], p: Object.keys(D.periodos)[0], prod: 'an
 const fmt = (x, d=1) => (x>0?'+':'') + x.toFixed(d).replace('.', ',').replace('-', '−');
 const map = L.map('map', { zoomControl: true, minZoom: 3, zoomSnap: 0.25 });
 map.fitBounds([[-55.5, -76], [-17.5, -66.5]], { paddingTopLeft: [0, 10], paddingBottomRight: [0, 10] });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-  attribution: 'Pronóstico: Copernicus C3S · © OpenStreetMap · © CARTO', subdomains: 'abcd', maxZoom: 10 }).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Pronóstico: Copernicus C3S · Mapa base © Esri, HERE, Garmin, © OpenStreetMap', maxZoom: 10 }).addTo(map);
 map.createPane('top'); map.getPane('top').style.zIndex = 450;
 let overlay = null;
 if (window.REGIONES) L.geoJSON(window.REGIONES, { pane: 'top', interactive: false,
