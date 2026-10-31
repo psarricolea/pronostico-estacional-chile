@@ -57,19 +57,21 @@ input[type=range]{width:100%;accent-color:var(--warm)}
 @media (max-width:700px){.ctl-buscar{width:200px}}
 .asa{display:none}
 @media (max-width:760px){
-  .app{display:block;position:relative;height:100%}
+  html,body{overflow:hidden}
+  .app{display:block;position:relative;height:100%;overflow:hidden}
   #map{position:absolute;inset:0}
-  aside{position:absolute;left:0;right:0;bottom:0;z-index:1000;width:auto;max-height:80%;padding:0 18px 18px;gap:18px;background:var(--ink);border-right:0;border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.35);transform:translateY(calc(100% - 66px));transition:transform .28s ease;overflow-y:hidden}
+  aside{position:absolute;left:0;right:0;bottom:0;z-index:1000;width:auto;max-height:80%;padding:0 18px 18px;gap:18px;background:var(--ink);border-right:0;border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.35);transform:translateY(calc(100% - var(--asa, 66px)));transition:transform .28s ease;overflow-y:hidden}
   aside.abierto{transform:none;overflow-y:auto}
   .asa{display:flex;flex-direction:column;align-items:stretch;gap:7px;position:sticky;top:0;z-index:2;flex:0 0 auto;margin:0 -18px;padding:9px 18px 12px;min-height:66px;background:var(--ink);border:0;color:var(--txt);font:inherit;text-align:left;cursor:pointer}
   .asa-tira{align-self:center;width:42px;height:4px;border-radius:2px;background:var(--line)}
   .asa-fila{display:flex;justify-content:space-between;align-items:center;gap:12px}
   #asaTxt{font-size:15px;font-weight:600;line-height:1.25}
-  #asaTxt small{display:block;font-weight:400;font-size:12px;color:var(--mute)}
+  #asaTxt small{display:block;white-space:nowrap;font-weight:400;font-size:12px;color:var(--mute)}
   .asa-ico{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--mute);white-space:nowrap}
   aside.abierto .asa-ico{transform:none}
   h1{font-size:34px}
-  .leaflet-bottom{bottom:66px}
+  .leaflet-bottom{bottom:var(--asa, 66px)}
+  .leaflet-control-attribution{font-size:9px;line-height:1.3}
 }
 </style>
 </head>
@@ -199,6 +201,10 @@ function abrirPanel(on) {
   if (!on) panel.scrollTop = 0;
 }
 asa.addEventListener('click', () => abrirPanel(!panel.classList.contains('abierto')));
+// Altura real de la barra plegada (para que no asomen los controles)
+const medirAsa = () => document.documentElement.style.setProperty('--asa', asa.offsetHeight + 'px');
+medirAsa(); addEventListener('resize', medirAsa);
+document.querySelectorAll('.seg').forEach(el => el.addEventListener('click', () => setTimeout(medirAsa, 0)));
 map.on('click dragstart', () => { if (esMovil() && panel.classList.contains('abierto')) abrirPanel(false); });
 // Que los popups no queden tapados por el panel
 if (esMovil()) L.Popup.prototype.options.autoPanPaddingBottomRight = L.point(10, 90);
