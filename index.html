@@ -68,13 +68,18 @@ const st = { v: Object.keys(D.vars)[0], p: Object.keys(D.periodos)[0], prod: 'an
 const fmt = (x, d=1) => (x>0?'+':'') + x.toFixed(d).replace('.', ',').replace('-', '−');
 const map = L.map('map', { zoomControl: true, minZoom: 3, zoomSnap: 0.25 });
 map.fitBounds([[-55.5, -76], [-17.5, -66.5]], { paddingTopLeft: [0, 10], paddingBottomRight: [0, 10] });
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}', {
   attribution: 'Pronóstico: Copernicus C3S · Mapa base y relieve © Esri, HERE, Garmin, USGS, NASA, © OpenStreetMap', maxZoom: 10 }).addTo(map);
 // Relieve sombreado fundido (multiply) sobre el mapa base
 map.createPane('relieve'); map.getPane('relieve').style.zIndex = 250; map.getPane('relieve').style.mixBlendMode = 'multiply';
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', { pane: 'relieve', maxZoom: 10, opacity: 0.9 }).addTo(map);
 // El pronóstico también se multiplica: el relieve se ve a través de los colores
 map.getPane('overlayPane').style.mixBlendMode = 'multiply';
+// Mar en azul apagado: fondo oceánico desaturado
+map.getPane('tilePane').style.filter = 'saturate(0.35) brightness(1.12) contrast(0.9)';
+// Nombres de países y océanos sobre el pronóstico
+map.createPane('etiquetas'); map.getPane('etiquetas').style.zIndex = 420; map.getPane('etiquetas').style.pointerEvents = 'none';
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { pane: 'etiquetas', maxZoom: 10 }).addTo(map);
 map.createPane('top'); map.getPane('top').style.zIndex = 450;
 let overlay = null;
 if (window.REGIONES) L.geoJSON(window.REGIONES, { pane: 'top', interactive: false,
