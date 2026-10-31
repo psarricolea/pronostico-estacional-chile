@@ -39,6 +39,8 @@ input[type=range]{width:100%;accent-color:var(--warm)}
 .pp .row{display:flex;justify-content:space-between;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12px}
 .pp .dim{color:#5b6b7b;font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:6px}
 .city{font-family:'Archivo',sans-serif;font-size:12px;font-weight:600;color:#0E1A26;text-shadow:0 0 3px #fff,0 0 3px #fff;white-space:nowrap}
+.pais span{display:block;transform:translate(-50%,-50%);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.35em;color:#5d6b79;text-shadow:0 0 3px #fff,0 0 3px #fff;white-space:nowrap}
+.pais.mar span{font-family:'Archivo',sans-serif;font-style:italic;font-size:12px;letter-spacing:.2em;color:#4f6378;text-shadow:none}
 @media (max-width:760px){.app{flex-direction:column-reverse}aside{width:auto;flex:0 0 auto;max-height:52%;border-right:0;border-top:1px solid var(--line);padding:18px}#map{flex:1 1 48%}h1{font-size:34px}}
 </style>
 </head>
@@ -91,6 +93,10 @@ function etiquetasZoom() {
   etiquetas.forEach(([c, m]) => { (c.top === 1 || z >= 6) ? m.addTo(map) : map.removeLayer(m); });
 }
 map.on('zoomend', etiquetasZoom); etiquetasZoom();
+// Nombres de países y océanos (etiquetas propias)
+[['ARGENTINA', -37, -65.5], ['BOLIVIA', -19.5, -65], ['PERÚ', -15.8, -72.5], ['PARAGUAY', -23.3, -58.3], ['URUGUAY', -32.8, -56], ['BRASIL', -19, -52],
+ ['Océano Pacífico', -36, -82, 'mar'], ['Océano Atlántico', -44, -56, 'mar']].forEach(([n, la, lo, t]) => 
+  L.marker([la, lo], { pane: 'top', interactive: false, keyboard: false, icon: L.divIcon({ className: 'pais' + (t ? ' ' + t : ''), html: '<span>' + n + '</span>', iconSize: null }) }).addTo(map));
 function capa() { return D.capas[st.v + '_' + st.p]; }
 function botones(id, opts, key) {
   const el = document.getElementById(id); el.innerHTML = '';
@@ -137,9 +143,29 @@ function consulta(lat, lon, arr) {
   });
   return w > 0 ? s / w : null;
 }
+// ¿El punto está dentro de Chile? (polígonos de regiones)
+function enAnillo(x, y, r) {
+  let d = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [xi, yi] = r[i], [xj, yj] = r[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) d = !d;
+  }
+  return d;
+}
+function enChile(lat, lng) {
+  const R = window.REGIONES;
+  if (!R) return true;
+  const feats = R.features || (R.type === 'Feature' ? [R] : [{ geometry: R }]);
+  return feats.some(f => {
+    const g = f.geometry; if (!g) return false;
+    const P = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    return P.some(p => enAnillo(lng, lat, p[0]) && !p.slice(1).some(h => enAnillo(lng, lat, h)));
+  });
+}
 map.on('click', e => {
   const c = capa(), { lat, lng } = e.latlng;
   if (lng < D.grid.xmin || lng > D.grid.xmin + D.grid.nx * D.grid.dx || lat > D.grid.ymax || lat < D.grid.ymax - D.grid.ny * D.grid.dy) return;
+  if (!enChile(lat, lng)) return;
   const an = consulta(lat, lng, c.anom), pb = consulta(lat, lng, c.pb), pn = consulta(lat, lng, c.pn), pa = consulta(lat, lng, c.pa);
   if (an === null) return;
   const pct = x => Math.round(100 * x) + ' %';
