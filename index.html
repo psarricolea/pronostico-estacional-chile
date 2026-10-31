@@ -77,9 +77,6 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/Worl
 map.getPane('overlayPane').style.mixBlendMode = 'multiply';
 // Mar en azul apagado: fondo oceánico desaturado
 map.getPane('tilePane').style.filter = 'saturate(0.35) brightness(1.12) contrast(0.9)';
-// Nombres de países y océanos sobre el pronóstico
-map.createPane('etiquetas'); map.getPane('etiquetas').style.zIndex = 420; map.getPane('etiquetas').style.pointerEvents = 'none';
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { pane: 'etiquetas', maxZoom: 10 }).addTo(map);
 map.createPane('top'); map.getPane('top').style.zIndex = 450;
 let overlay = null;
 if (window.REGIONES) L.geoJSON(window.REGIONES, { pane: 'top', interactive: false,
