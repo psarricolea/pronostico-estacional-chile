@@ -55,12 +55,28 @@ input[type=range]{width:100%;accent-color:var(--warm)}
 .medida{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;background:#0E1A26;color:#fff;border:0;border-radius:2px;padding:3px 7px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .medida:before{display:none}
 @media (max-width:700px){.ctl-buscar{width:200px}}
-@media (max-width:760px){.app{flex-direction:column-reverse}aside{width:auto;flex:0 0 auto;max-height:52%;border-right:0;border-top:1px solid var(--line);padding:18px}#map{flex:1 1 48%}h1{font-size:34px}}
+.asa{display:none}
+@media (max-width:760px){
+  .app{display:block;position:relative;height:100%}
+  #map{position:absolute;inset:0}
+  aside{position:absolute;left:0;right:0;bottom:0;z-index:1000;width:auto;max-height:80%;padding:0 18px 18px;gap:18px;background:var(--ink);border-right:0;border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.35);transform:translateY(calc(100% - 66px));transition:transform .28s ease;overflow-y:hidden}
+  aside.abierto{transform:none;overflow-y:auto}
+  .asa{display:flex;flex-direction:column;align-items:stretch;gap:7px;position:sticky;top:0;z-index:2;flex:0 0 auto;margin:0 -18px;padding:9px 18px 12px;min-height:66px;background:var(--ink);border:0;color:var(--txt);font:inherit;text-align:left;cursor:pointer}
+  .asa-tira{align-self:center;width:42px;height:4px;border-radius:2px;background:var(--line)}
+  .asa-fila{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  #asaTxt{font-size:15px;font-weight:600;line-height:1.25}
+  #asaTxt small{display:block;font-weight:400;font-size:12px;color:var(--mute)}
+  .asa-ico{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--mute);white-space:nowrap}
+  aside.abierto .asa-ico{transform:none}
+  h1{font-size:34px}
+  .leaflet-bottom{bottom:66px}
+}
 </style>
 </head>
 <body>
 <div class="app">
 <aside>
+  <button class="asa" id="asa" type="button" aria-expanded="false"><span class="asa-tira"></span><span class="asa-fila"><span id="asaTxt"></span><span class="asa-ico" id="asaIco">CONTROLES ▲</span></span></button>
   <div class="kick">PRONÓSTICO ESTACIONAL · CHILE</div>
   <h1 id="titulo">Temperatura máxima</h1>
   <p class="sub" id="sub"></p>
@@ -152,6 +168,7 @@ function render() {
   botones('segVar', D.vars, 'v'); botones('segPer', D.periodos, 'p');
   botones('segProd', { anom: 'Anomalía', cat: 'Tercil más probable' }, 'prod');
   document.getElementById('titulo').textContent = D.vars[st.v];
+  document.getElementById('asaTxt').innerHTML = D.vars[st.v] + ' · ' + D.periodos[st.p] + '<small>' + (st.prod === 'anom' ? 'Anomalía' : 'Tercil más probable') + '</small>';
   document.getElementById('sub').textContent = D.periodos[st.p] + ' · ' + (st.prod === 'anom'
     ? 'cuánto más cálido o más frío que lo normal promedian los modelos.'
     : 'categoría (bajo, normal o sobre lo normal) con mayor probabilidad.');
@@ -172,6 +189,20 @@ function consulta(lat, lon, arr) {
   });
   return w > 0 ? s / w : null;
 }
+// ---- Panel inferior plegable en celular ----
+const esMovil = () => matchMedia('(max-width:760px)').matches;
+const panel = document.querySelector('aside'), asa = document.getElementById('asa');
+function abrirPanel(on) {
+  panel.classList.toggle('abierto', on);
+  asa.setAttribute('aria-expanded', on);
+  document.getElementById('asaIco').textContent = on ? 'CERRAR ▼' : 'CONTROLES ▲';
+  if (!on) panel.scrollTop = 0;
+}
+asa.addEventListener('click', () => abrirPanel(!panel.classList.contains('abierto')));
+map.on('click dragstart', () => { if (esMovil() && panel.classList.contains('abierto')) abrirPanel(false); });
+// Que los popups no queden tapados por el panel
+if (esMovil()) L.Popup.prototype.options.autoPanPaddingBottomRight = L.point(10, 90);
+
 // ---- Medición de distancias ----
 let midiendo = false, ptsMed = [];
 const capaMed = L.layerGroup().addTo(map);
