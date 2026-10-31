@@ -56,7 +56,7 @@ input[type=range]{width:100%;accent-color:var(--warm)}
   <div class="leg" id="leyenda"></div>
   <p class="pista">Haz clic en el mapa para ver la probabilidad de cada tercil en ese punto.</p>
   <fieldset><legend><label for="opac">OPACIDAD</label></legend><input id="opac" type="range" min="0.2" max="1" step="0.05" value="0.85"></fieldset>
-  <div class="aviso"><b>Se actualiza mes a mes.</b> Para avisos, alertas y el pronóstico oficial, sigue los canales de la <b>Dirección Meteorológica de Chile (DMC)</b>.</div>
+  <div class="aviso"><b>Se actualiza mes a mes.</b><span id="proxima"></span> Para avisos, alertas y el pronóstico oficial, sigue los canales de la <b>Dirección Meteorológica de Chile (DMC)</b>.</div>
   <div class="meta"><div class="credit" id="credit"></div><div id="metaTxt"></div></div>
 </aside>
 <div id="map" role="region" aria-label="Mapa de Chile con el pronóstico estacional"></div>
@@ -67,6 +67,20 @@ input[type=range]{width:100%;accent-color:var(--warm)}
 <script>
 const D = window.DATA;
 const st = { v: Object.keys(D.vars)[0], p: Object.keys(D.periodos)[0], prod: 'anom', op: 0.85 };
+// Vista compartible por enlace: ?v=tmin&p=DEF&prod=cat
+try {
+  const q = new URLSearchParams(location.search);
+  const qv = (q.get('v') || '').toLowerCase(), qp = (q.get('p') || '').toUpperCase(), qr = (q.get('prod') || '').toLowerCase();
+  if (D.vars[qv]) st.v = qv;
+  if (D.periodos[qp]) st.p = qp;
+  if (qr === 'anom' || qr === 'cat') st.prod = qr;
+} catch (e) {}
+// Próxima actualización: C3S publica la nueva inicialización entre el 5 y el 10 de cada mes
+(function () {
+  const M = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const i = M.indexOf(String(D.init || '').split(' ')[0].toLowerCase()), el = document.getElementById('proxima');
+  if (i >= 0 && el) el.textContent = ' Próxima actualización: entre el 5 y el 10 de ' + M[(i + 1) % 12] + '.';
+})();
 const fmt = (x, d=1) => (x>0?'+':'') + x.toFixed(d).replace('.', ',').replace('-', '−');
 const map = L.map('map', { zoomControl: true, minZoom: 3, zoomSnap: 0.25 });
 map.fitBounds([[-55.5, -76], [-17.5, -66.5]], { paddingTopLeft: [0, 10], paddingBottomRight: [0, 10] });
@@ -131,6 +145,7 @@ function render() {
   if (overlay) map.removeLayer(overlay);
   overlay = L.imageOverlay(url, c.bounds, { opacity: st.op, alt: D.vars[st.v] + ' ' + D.periodos[st.p] }).addTo(map);
   leyenda(); map.closePopup();
+  try { history.replaceState(null, '', '?v=' + st.v + '&p=' + st.p + '&prod=' + st.prod); } catch (e) {}
 }
 // Interpolación bilineal sobre la grilla de 1°
 function consulta(lat, lon, arr) {
@@ -168,7 +183,7 @@ map.on('click', e => {
   if (!enChile(lat, lng)) return;
   const an = consulta(lat, lng, c.anom), pb = consulta(lat, lng, c.pb), pn = consulta(lat, lng, c.pn), pa = consulta(lat, lng, c.pa);
   if (an === null) return;
-  const pct = x => Math.round(100 * x) + ' %';
+  const pct = x => { const p = Math.round(100 * x); return p >= 95 ? '≥ 95 %' : p <= 5 ? '≤ 5 %' : p + ' %'; };
   L.popup({ maxWidth: 240 }).setLatLng(e.latlng).setContent(
     '<div class="pp"><h3>' + D.vars[st.v] + ' · ' + D.periodos[st.p] + '</h3>' +
     '<div class="big">' + fmt(an) + ' °C</div>' +
