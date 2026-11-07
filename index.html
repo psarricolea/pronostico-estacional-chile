@@ -99,6 +99,11 @@ input[type=range]{width:100%;accent-color:var(--warm)}
 <script src="data.js"></script>
 <script>
 const D = window.DATA;
+// Configuración por variable (unidad, paleta, textos). data.js antiguos no la traen: se usa la de temperatura.
+const CFG0 = { unidad: '°C', dec: 1, brk: D.brk_anom || [-3, 3], pal: D.pal_anom, pal_cat: D.pal_cat,
+  neg: 'más frío', pos: 'más cálido', leyenda: 'ANOMALÍA RESPECTO DE LO NORMAL (°C)',
+  sub: 'cuánto más cálido o más frío que lo normal promedian los modelos.' };
+const cfg = () => (D.vcfg && D.vcfg[st.v]) || CFG0;
 const st = { v: Object.keys(D.vars)[0], p: Object.keys(D.periodos)[0], prod: 'anom', op: 0.85 };
 // Vista compartible por enlace: ?v=tmin&p=DEF&prod=cat
 try {
@@ -108,13 +113,14 @@ try {
   if (D.periodos[qp]) st.p = qp;
   if (qr === 'anom' || qr === 'cat') st.prod = qr;
 } catch (e) {}
-// Próxima actualización: C3S publica la nueva inicialización entre el 5 y el 10 de cada mes
+// Próxima actualización: C3S publica el día 10 y la rutina de GitHub corre el día 11 de cada mes
 (function () {
   const M = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const i = M.indexOf(String(D.init || '').split(' ')[0].toLowerCase()), el = document.getElementById('proxima');
-  if (i >= 0 && el) el.textContent = ' Próxima actualización: entre el 5 y el 10 de ' + M[(i + 1) % 12] + '.';
+  if (i >= 0 && el) el.textContent = ' Próxima actualización: 11 de ' + M[(i + 1) % 12] + '.';
 })();
 const fmt = (x, d=1) => (x>0?'+':'') + x.toFixed(d).replace('.', ',').replace('-', '−');
+const fmtU = x => fmt(x, cfg().dec) + (cfg().unidad === '%' ? ' %' : ' ' + cfg().unidad);
 const map = L.map('map', { zoomControl: true, minZoom: 3, zoomSnap: 0.25 });
 map.fitBounds([[-55.5, -76], [-17.5, -66.5]], { paddingTopLeft: [0, 10], paddingBottomRight: [0, 10] });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}', {
@@ -156,14 +162,16 @@ function botones(id, opts, key) {
   });
 }
 function leyenda() {
-  const el = document.getElementById('leyenda');
+  const el = document.getElementById('leyenda'), k = cfg();
+  const lim = x => (x > 0 ? '+' : '') + String(x).replace('-', '−') + (k.unidad === '%' ? ' %' : '');
+  const nota = k.nota_seco ? '<p class="pista" style="margin:4px 0 0">' + k.nota_seco + '</p>' : '';
   if (st.prod === 'anom') {
-    el.innerHTML = '<div class="kick">ANOMALÍA RESPECTO DE LO NORMAL (°C)</div><div class="bar">' +
-      D.pal_anom.map(c => '<span style="background:' + c + '"></span>').join('') +
-      '</div><div class="ticks"><span>−3 · más frío</span><span>0</span><span>más cálido · +3</span></div>';
+    el.innerHTML = '<div class="kick">' + k.leyenda + '</div><div class="bar">' +
+      k.pal.map(c => '<span style="background:' + c + '"></span>').join('') +
+      '</div><div class="ticks"><span>' + lim(k.brk[0]) + ' · ' + k.neg + '</span><span>0</span><span>' + k.pos + ' · ' + lim(k.brk[k.brk.length - 1]) + '</span></div>' + nota;
   } else {
     el.innerHTML = '<div class="kick">TERCIL MÁS PROBABLE</div><div class="cats">' +
-      D.clases.map((t, i) => '<div><i style="background:' + D.pal_cat[i] + '"></i>' + t + '</div>').join('') + '</div>';
+      D.clases.map((t, i) => '<div><i style="background:' + k.pal_cat[i] + '"></i>' + t + '</div>').join('') + '</div>' + nota;
   }
 }
 function render() {
@@ -173,7 +181,7 @@ function render() {
   document.getElementById('titulo').textContent = D.vars[st.v];
   document.getElementById('asaTxt').innerHTML = D.vars[st.v] + ' · ' + D.periodos[st.p] + '<small>' + (st.prod === 'anom' ? 'Anomalía' : 'Tercil más probable') + '</small>';
   document.getElementById('sub').textContent = D.periodos[st.p] + ' · ' + (st.prod === 'anom'
-    ? 'cuánto más cálido o más frío que lo normal promedian los modelos.'
+    ? cfg().sub
     : 'categoría (bajo, normal o sobre lo normal) con mayor probabilidad.');
   const url = st.prod === 'anom' ? c.img_anom : c.img_cat;
   if (overlay) map.removeLayer(overlay);
@@ -330,11 +338,15 @@ map.on('click', e => {
   if (lng < D.grid.xmin || lng > D.grid.xmin + D.grid.nx * D.grid.dx || lat > D.grid.ymax || lat < D.grid.ymax - D.grid.ny * D.grid.dy) return;
   if (!enChile(lat, lng)) return;
   const an = consulta(lat, lng, c.anom), pb = consulta(lat, lng, c.pb), pn = consulta(lat, lng, c.pn), pa = consulta(lat, lng, c.pa);
-  if (an === null) return;
+  if (an === null) {
+    if (cfg().nota_seco) L.popup({ maxWidth: 240 }).setLatLng(e.latlng).setContent(
+      '<div class="pp"><h3>' + D.vars[st.v] + ' · ' + D.periodos[st.p] + '</h3>Zona seca en este período: la lluvia normal es casi nula, así que no se calculan terciles.</div>').openOn(map);
+    return;
+  }
   const pct = x => { const p = Math.round(100 * x); return p >= 95 ? '≥ 95 %' : p <= 5 ? '≤ 5 %' : p + ' %'; };
   L.popup({ maxWidth: 240 }).setLatLng(e.latlng).setContent(
     '<div class="pp"><h3>' + D.vars[st.v] + ' · ' + D.periodos[st.p] + '</h3>' +
-    '<div class="big">' + fmt(an) + ' °C</div>' +
+    '<div class="big">' + fmtU(an) + '</div>' +
     '<div class="row"><span>Bajo lo normal</span><span>' + pct(pb) + '</span></div>' +
     '<div class="row"><span>Normal</span><span>' + pct(pn) + '</span></div>' +
     '<div class="row"><span>Sobre lo normal</span><span>' + pct(pa) + '</span></div>' +
@@ -343,7 +355,8 @@ map.on('click', e => {
 });
 document.getElementById('opac').addEventListener('input', ev => { st.op = +ev.target.value; if (overlay) overlay.setOpacity(st.op); });
 document.getElementById('credit').textContent = 'Corrido el ' + D.fecha + ' por ' + D.autor;
-document.getElementById('metaTxt').innerHTML = 'Multi-modelo Copernicus C3S · inicialización ' + D.init + ' · ' + D.modo +
+const nSis = D.sistemas ? Math.max(...Object.values(D.sistemas).map(x => x.length)) : 0;
+document.getElementById('metaTxt').innerHTML = 'Multi-modelo Copernicus C3S' + (nSis ? ' (' + nSis + ' sistemas)' : '') + ' · inicialización ' + D.init + ' · ' + D.modo +
   ' · grilla de 1° (~110 km) interpolada para visualizar · límites: ' + D.limites;
 render();
 </script>
