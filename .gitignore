@@ -1,0 +1,4 @@
+# Descargas del CDS (se rehacen en cada corrida; el hindcast queda en la caché de Actions)
+raw/
+*.aux.xml
+.Rhistory
