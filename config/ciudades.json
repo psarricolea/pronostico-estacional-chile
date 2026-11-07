@@ -1,0 +1,104 @@
+[
+ {
+  "n": "Arica",
+  "lon": -70.31,
+  "lat": -18.48,
+  "top": 1
+ },
+ {
+  "n": "Iquique",
+  "lon": -70.14,
+  "lat": -20.21,
+  "top": 0
+ },
+ {
+  "n": "Calama",
+  "lon": -68.93,
+  "lat": -22.46,
+  "top": 0
+ },
+ {
+  "n": "Antofagasta",
+  "lon": -70.4,
+  "lat": -23.65,
+  "top": 1
+ },
+ {
+  "n": "Copiapó",
+  "lon": -70.33,
+  "lat": -27.37,
+  "top": 1
+ },
+ {
+  "n": "La Serena",
+  "lon": -71.25,
+  "lat": -29.91,
+  "top": 1
+ },
+ {
+  "n": "Valparaíso",
+  "lon": -71.62,
+  "lat": -33.05,
+  "top": 0
+ },
+ {
+  "n": "Santiago",
+  "lon": -70.65,
+  "lat": -33.45,
+  "top": 1
+ },
+ {
+  "n": "Rancagua",
+  "lon": -70.74,
+  "lat": -34.17,
+  "top": 0
+ },
+ {
+  "n": "Talca",
+  "lon": -71.66,
+  "lat": -35.43,
+  "top": 1
+ },
+ {
+  "n": "Chillán",
+  "lon": -72.1,
+  "lat": -36.61,
+  "top": 0
+ },
+ {
+  "n": "Concepción",
+  "lon": -73.05,
+  "lat": -36.83,
+  "top": 1
+ },
+ {
+  "n": "Temuco",
+  "lon": -72.59,
+  "lat": -38.74,
+  "top": 1
+ },
+ {
+  "n": "Valdivia",
+  "lon": -73.25,
+  "lat": -39.81,
+  "top": 0
+ },
+ {
+  "n": "Puerto Montt",
+  "lon": -72.94,
+  "lat": -41.47,
+  "top": 1
+ },
+ {
+  "n": "Coyhaique",
+  "lon": -72.07,
+  "lat": -45.57,
+  "top": 1
+ },
+ {
+  "n": "Punta Arenas",
+  "lon": -70.91,
+  "lat": -53.16,
+  "top": 1
+ }
+]
