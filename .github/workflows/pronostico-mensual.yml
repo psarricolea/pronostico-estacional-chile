@@ -1,0 +1,97 @@
+name: Pronóstico estacional mensual
+
+# C3S publica la nueva inicialización el día 10 a las 12 UTC.
+# La rutina corre el 11; los días 12 y 13 reintenta solo si el 11 falló
+# (si el visor ya tiene esa inicialización, termina sin hacer nada).
+on:
+  schedule:
+    - cron: '0 15 11 * *'      # 11 de cada mes, 15:00 UTC (12:00 Chile en verano, 11:00 en invierno)
+    - cron: '0 15 12,13 * *'   # reintentos
+  workflow_dispatch:
+    inputs:
+      init_year:
+        description: 'Año de inicialización (vacío = automático)'
+        required: false
+        default: ''
+      init_month:
+        description: 'Mes de inicialización, 1 a 12 (vacío = automático)'
+        required: false
+        default: ''
+      forzar:
+        description: 'Recalcular aunque el visor ya tenga esa inicialización'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: pronostico-estacional
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      INIT_YEAR: ${{ inputs.init_year }}
+      INIT_MONTH: ${{ inputs.init_month }}
+      FORZAR: ${{ inputs.forzar }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mes de inicialización (para la caché del hindcast)
+        id: mes
+        run: |
+          if [ -n "$INIT_MONTH" ]; then
+            m=$(printf '%02d' "$INIT_MONTH")
+          else
+            d=$(date -u +%-d); h=$(date -u +%-H)
+            if [ "$d" -lt 10 ] || { [ "$d" -eq 10 ] && [ "$h" -lt 13 ]; }; then
+              m=$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%m)
+            else
+              m=$(date -u +%m)
+            fi
+          fi
+          echo "m=$m" >> "$GITHUB_OUTPUT"
+
+      - name: Caché del hindcast
+        uses: actions/cache@v4
+        with:
+          path: raw/hc
+          key: hindcast-v1-m${{ steps.mes.outputs.m }}
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Librerías del sistema
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libgdal-dev libgeos-dev libproj-dev libnetcdf-dev libudunits2-dev libsqlite3-dev
+
+      - name: Paquetes de R
+        run: Rscript -e 'install.packages(c("ecmwfr", "ncdf4", "terra", "jsonlite"))'
+
+      - name: Descargar del CDS y calcular
+        id: calc
+        env:
+          ecmwfr_PAT: ${{ secrets.CDS_API_KEY }}
+        run: Rscript R/pronostico_mensual.R
+
+      - name: Publicar en el visor
+        if: steps.calc.outputs.actualizado == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data.js img
+          git commit -m "Pronóstico estacional: inicialización ${{ steps.calc.outputs.init_tag }}" || exit 0
+          git push
+
+      - name: Reconstruir GitHub Pages
+        if: steps.calc.outputs.actualizado == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
